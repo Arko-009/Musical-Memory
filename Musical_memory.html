@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Musical Memory Puzzle</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <style>
+    /* Global Styles */
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #222;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+    }
+    h1 {
+      font-size: 3rem;
+      margin-top: 20px;
+    }
+    #timerDisplay {
+      font-size: 1.5rem;
+      margin: 10px;
+    }
+    #startButton {
+      padding: 10px 20px;
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+      cursor: pointer;
+      background: #ff4500;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+    }
+    /* Row Containers */
+    .row {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin: 20px auto;
+      flex-wrap: wrap;
+    }
+    .divider {
+  width: 100%;
+  height: 4px;
+  background-color: rgb(111, 15, 245);
+  margin: 10px 0;
+}
+button {
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(45deg, #ff9a8b, #ff6a88);
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            outline: none;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease-in-out;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            background: linear-gradient(45deg, #ff6a88, #ff9a8b);
+        }
+    /* Icon Cells */
+    .icon-cell {
+      width: 80px;
+      height: 80px;
+      background: #444;
+      border: 2px solid #fff;
+      border-radius: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: background 0.3s, transform 0.2s;
+      cursor: pointer;
+      position: relative;
+    }
+    .icon-cell:hover {
+      transform: scale(1.1);
+    }
+    .icon-cell i {
+      font-size: 2.5rem;
+      color: #fff;
+    }
+    /* Disable user input when needed */
+    .disabled {
+      pointer-events: none;
+      opacity: 0.6;
+    }
+    /* Flash Animation (for highlighting moves) */
+    .flash {
+      animation: flashAnim 0.5s ease;
+    }
+    @keyframes flashAnim {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+    /* Floating Icon (on click) */
+    .floating-icon {
+      position: absolute;
+      animation: floatUp 1s ease-out forwards;
+      pointer-events: none;
+    }
+    @keyframes floatUp {
+      0% { transform: translateY(0); opacity: 1; }
+      100% { transform: translateY(-50px); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Musical Memory Puzzle</h1>
+  <div id="timerDisplay">Time: 180</div>
+  <button id="startButton">Start Game</button>
+  
+  <!-- Upper Row: Computer picks (display only) -->
+  <div id="computerRow" class="row">
+    <!-- These cells are generated dynamically -->
+  </div>
+  <div class="divider"></div>
+  <!-- Lower Row: User picks (clickable; order is shuffled) -->
+  <div id="userRow" class="row">
+    <!-- These cells are generated dynamically -->
+  </div>
+  <a href="index.html"><button id="button23" >Game</button></a>
+  
+  <script>
+    const iconsData = [
+      { id: "hand",      iconClass: "fa-regular fa-hand",       color: "#1E90FF" },   
+      { id: "smile",     iconClass: "fa-regular fa-face-smile",   color: "#FFD700" },   
+      { id: "heart",     iconClass: "fa-regular fa-heart",        color: "#FF4500" },   
+      { id: "snowflake", iconClass: "fa-regular fa-snowflake",      color: "#00FFFF" },   
+      { id: "exclamation", iconClass: "fa-solid fa-exclamation",    color: "#FFA500" },   
+      { id: "lightbulb", iconClass: "fa-regular fa-lightbulb",      color: "#ADFF2F" }   
+    ];
+    
+    // UI Elements
+    const computerRow = document.getElementById("computerRow");
+    const userRow = document.getElementById("userRow");
+    const timerDisplay = document.getElementById("timerDisplay");
+    const startButton = document.getElementById("startButton");
+
+    let timer = 180;
+    let timerInterval;
+    let computerSequence = [];  
+    let currentStep = 0;        
+    let inputEnabled = false;   
+    
+    function renderComputerRow() {
+      computerRow.innerHTML = "";
+      iconsData.forEach(item => {
+        const cell = document.createElement("div");
+        cell.classList.add("icon-cell");
+        cell.setAttribute("data-id", item.id);
+        cell.style.background = "#444";
+        cell.innerHTML = `<i class="${item.iconClass}"></i>`;
+        computerRow.appendChild(cell);
+      });
+    }
+    function renderUserRow() {
+      userRow.innerHTML = "";
+      const shuffled = iconsData.slice().sort(() => Math.random() - 0.5);
+      shuffled.forEach(item => {
+        const cell = document.createElement("div");
+        cell.classList.add("icon-cell");
+        cell.setAttribute("data-id", item.id);
+        cell.setAttribute("data-color", item.color);
+        cell.innerHTML = `<i class="${item.iconClass}"></i>`;
+        cell.addEventListener("click", () => {
+          if (!inputEnabled) return;
+          handleUserClick(cell);
+        });
+        userRow.appendChild(cell);
+      });
+    }
+    function updateTimerDisplay() {
+      timerDisplay.textContent = `Time: ${timer}`;
+    }
+    
+    function startTimer() {
+      timer = 180;
+      updateTimerDisplay();
+      timerInterval = setInterval(() => {
+        timer--;
+        updateTimerDisplay();
+        if (timer <= 0) {
+          clearInterval(timerInterval);
+          endGame("Time's up! Game over.");
+        }
+      }, 1000);
+    }
+    function flashCell(cell, color) {
+      const originalBg = cell.style.background;
+      cell.style.background = color;
+      cell.classList.add("flash");
+      setTimeout(() => {
+        cell.style.background = originalBg;
+        cell.classList.remove("flash");
+      }, 500);
+    }
+    function createFloatingIcon(cell) {
+      const icon = cell.querySelector("i");
+      if (!icon) return;
+      const rect = cell.getBoundingClientRect();
+      const clone = icon.cloneNode(true);
+      clone.classList.add("floating-icon");
+      clone.style.left = rect.left + "px";
+      clone.style.top = rect.top + "px";
+      document.body.appendChild(clone);
+      setTimeout(() => clone.remove(), 1000);
+    }
+    function playComputerSequence() {
+      inputEnabled = false;
+      let i = 0;
+      const interval = setInterval(() => {
+        if (i < computerSequence.length) {
+          const moveId = computerSequence[i];
+          const cell = [...computerRow.children].find(el => el.getAttribute("data-id") === moveId);
+          const moveData = iconsData.find(item => item.id === moveId);
+          if (cell && moveData) {
+            flashCell(cell, moveData.color);
+          }
+          i++;
+        } else {
+          clearInterval(interval);
+          inputEnabled = true;
+          currentStep = 0;
+        }
+      }, 800);
+    }
+    function handleUserClick(cell) {
+      const moveId = cell.getAttribute("data-id");
+      createFloatingIcon(cell);
+      if (moveId === computerSequence[currentStep]) {
+        const moveData = iconsData.find(item => item.id === moveId);
+        flashCell(cell, moveData ? moveData.color : "#0f0");
+        currentStep++;
+        if (currentStep === computerSequence.length) {
+          inputEnabled = false;
+          timer += 10; 
+          alert("Correct sequence! +10 seconds.");
+          nextRound();
+        }
+      } else {
+        flashCell(cell, "#ff0000");
+        timer -= 30;
+        alert("Wrong move! -30 seconds.");
+        currentStep = 0;
+        inputEnabled = false;
+        setTimeout(() => {
+          playComputerSequence();
+        }, 800);
+      }
+    }
+    function nextRound() {
+      const randomMove = iconsData[Math.floor(Math.random() * iconsData.length)].id;
+      computerSequence.push(randomMove);
+      setTimeout(() => {
+        playComputerSequence();
+      }, 800);
+    }
+    function endGame(message) {
+      inputEnabled = false;
+      alert(message);
+      startButton.disabled = false;
+    }
+    function startGame() {
+      startButton.disabled = true;
+      computerSequence = [];
+      currentStep = 0;
+      for (let i = 0; i < 3; i++) {
+        const randomMove = iconsData[Math.floor(Math.random() * iconsData.length)].id;
+        computerSequence.push(randomMove);
+      }
+      renderComputerRow();
+      renderUserRow();
+      startTimer();
+      setTimeout(() => {
+        playComputerSequence();
+      }, 800);
+    }
+    startButton.addEventListener("click", startGame);
+  </script>
+</body>
+</html>
